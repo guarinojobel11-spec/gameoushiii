@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Street Racer</title>
+
+<style>
+body {
+    margin: 0;
+    background: #111;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+#game {
+    width: 100%;
+    max-width: 600px;
+    margin: auto;
+}
+
+.hud {
+    display: flex;
+    justify-content: space-around;
+    padding: 12px;
+    font-weight: bold;
+}
+
+button {
+    border: none;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#start {
+    background: #00c853;
+    color: white;
+    margin-bottom: 10px;
+}
+
+#track {
+    position: relative;
+    width: 100%;
+    height: 520px;
+    overflow: hidden;
+    background: #387a38;
+    border: 3px solid #222;
+    box-sizing: border-box;
+}
+
+.road {
+    position: absolute;
+    left: 20%;
+    right: 20%;
+    top: 0;
+    bottom: 0;
+    background: #333;
+}
+
+.line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: repeating-linear-gradient(
+        to bottom,
+        white 0px,
+        white 35px,
+        transparent 35px,
+        transparent 75px
+    );
+}
+
+.line1 { left: 33%; }
+.line2 { left: 50%; }
+.line3 { left: 67%; }
+
+.car {
+    position: absolute;
+    width: 34px;
+    height: 58px;
+    border-radius: 8px;
+    border: 3px solid #111;
+    box-sizing: border-box;
+}
+
+.player {
+    background: red;
+    z-index: 5;
+}
+
+.enemy1 {
+    background: blue;
+}
+
+.enemy2 {
+    background: yellow;
+}
+
+.enemy3 {
+    background: purple;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 12px;
+}
+
+.control {
+    width: 70px;
+    height: 55px;
+    font-size: 25px;
+    background: #333;
+    color: white;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+    <div class="hud">
+        <div>🏁 Lap: <span id="lap">1/3</span></div>
+        <div>⚡ <span id="speed">0</span></div>
+        <div>⏱️ <span id="time">0.0</span>s</div>
+    </div>
+
+    <button id="start">START RACE</button>
+
+    <p id="message">Tap START, then steer!</p>
+
+    <div id="track">
+
+        <div class="road"></div>
+
+        <div class="line line1"></div>
+        <div class="line line2"></div>
+        <div class="line line3"></div>
+
+        <div class="car enemy1" id="enemy1"></div>
+        <div class="car enemy2" id="enemy2"></div>
+        <div class="car enemy3" id="enemy3"></div>
+
+        <div class="car player" id="player"></div>
+
+    </div>
+
+    <div class="controls">
+        <button class="control" id="left">◀</button>
+        <button class="control" id="brake">▼</button>
+        <button class="control" id="right">▶</button>
+    </div>
+
+</div>
+
+<script>
+
+const track = document.getElementById("track");
+const player = document.getElementById("player");
+
+const enemies = [
+    document.getElementById("enemy1"),
+    document.getElementById("enemy2"),
+    document.getElementById("enemy3")
+];
+
+const startButton = document.getElementById("start");
+const message = document.getElementById("message");
+
+const speedText = document.getElementById("speed");
+const lapText = document.getElementById("lap");
+const timeText = document.getElementById("time");
+
+let playerX;
+let playerY;
+
+let speed = 0;
+let distance = 0;
+let lap = 1;
+
+let running = false;
+let startTime;
+let lastTime;
+
+let keys = {
+    left: false,
+    right: false,
+    brake: false
+};
+
+function resetGame() {
+
+    playerX = track.clientWidth / 2 - 17;
+    playerY = track.clientHeight - 90;
+
+    speed = 0;
+    distance = 0;
+    lap = 1;
+
+    player.style.left = playerX + "px";
+    player.style.top = playerY + "px";
+
+    enemies.forEach((enemy, i) => {
+
+        enemy.style.left =
+            (track.clientWidth * (0.35 + i * 0.15) - 17) + "px";
+
+        enemy.style.top =
+            (-100 - i * 140) + "px";
+
+    });
+
+    lapText.textContent = "1/3";
+    speedText.textContent = "0";
+    timeText.textContent = "0.0";
+}
+
+function startGame() {
+
+    resetGame();
+
+    running = true;
+
+    message.textContent = "GO!";
+
+    startButton.textContent = "RESTART";
+
+    startTime = performance.now();
+    lastTime = performance.now();
+
+    requestAnimationFrame(gameLoop);
+}
+
+function gameLoop(time) {
+
+    if (!running) return;
+
+    let delta = (time - lastTime) / 1000;
+
+    if (delta > 0.05) {
+        delta = 0.05;
+    }
+
+    lastTime = time;
+
+    // Accelerate
+    if (!keys.brake) {
+        speed += 140 * delta;
+    } else {
+        speed -= 180 * delta;
+    }
+
+    speed -= 25 * delta;
+
+    speed = Math.max(0, Math.min(speed, 330));
+
+    // Steering
+    if (keys.left) {
+        playerX -= (150 + speed * 0.3) * delta;
+    }
+
+    if (keys.right) {
+        playerX += (150 + speed * 0.3) * delta;
+    }
+
+    // Keep car on road
+    playerX = Math.max(
+        track.clientWidth * 0.20 + 3,
+        playerX
+    );
+
+    playerX = Math.min(
+        track.clientWidth * 0.80 - 37,
+        playerX
+    );
+
+    player.style.left = playerX + "px";
+
+    player.style.top = playerY + "px";
+
+    // Distance
+    distance += speed * delta;
+
+    lap = Math.floor(distance / 1800) + 1;
+
+    if (lap > 3) {
+        finishRace();
+        return;
+    }
+
+    lapText.textContent = lap + "/3";
+
+    speedText.textContent =
+        Math.round(speed * 0.45);
+
+    timeText.textContent =
+        ((time - startTime) / 1000).toFixed(1);
+
+    // Move enemies
+    enemies.forEach((enemy, index) => {
+
+        let enemyY =
+            parseFloat(enemy.style.top) || 0;
+
+        enemyY +=
+            (115 + index * 20) * delta;
+
+        if (enemyY > track.clientHeight + 80) {
+
+            enemyY =
+                -80 - Math.random() * 200;
+
+            enemy.style.left =
+                (track.clientWidth *
+                (0.32 + Math.random() * 0.36)) + "px";
+        }
+
+        enemy.style.top = enemyY + "px";
+
+        // Collision
+        if (collision(player, enemy)) {
+
+            speed *= 0.45;
+
+            message.textContent =
+                "💥 CRASH!";
+
+        }
+
+    });
+
+    requestAnimationFrame(gameLoop);
+}
+
+function collision(a, b) {
+
+    const A = a.getBoundingClientRect();
+    const B = b.getBoundingClientRect();
+
+    return (
+        A.left < B.right &&
+        A.right > B.left &&
+        A.top < B.bottom &&
+        A.bottom > B.top
+    );
+}
+
+function finishRace() {
+
+    running = false;
+
+    const finalTime =
+        ((performance.now() - startTime) / 1000)
+        .toFixed(1);
+
+    message.textContent =
+        "🏆 FINISH! Time: " + finalTime + "s";
+
+    startButton.textContent = "RACE AGAIN";
+}
+
+startButton.addEventListener(
+    "click",
+    startGame
+);
+
+
+// Mobile controls
+
+function holdButton(button, key) {
+
+    button.addEventListener(
+        "pointerdown",
+        function(e) {
+            e.preventDefault();
+            keys[key] = true;
+        }
+    );
+
+    button.addEventListener(
+        "pointerup",
+        function() {
+            keys[key] = false;
+        }
+    );
+
+    button.addEventListener(
+        "pointercancel",
+        function() {
+            keys[key] = false;
+        }
+    );
+
+    button.addEventListener(
+        "pointerleave",
+        function() {
+            keys[key] = false;
+        }
+    );
+}
+
+holdButton(
+    document.getElementById("left"),
+    "left"
+);
+
+holdButton(
+    document.getElementById("right"),
+    "right"
+);
+
+holdButton(
+    document.getElementById("brake"),
+    "brake"
+);
+
+
+// Keyboard controls
+
+document.addEventListener(
+    "keydown",
+    function(e) {
+
+        if (e.key === "ArrowLeft") {
+            keys.left = true;
+        }
+
+        if (e.key === "ArrowRight") {
+            keys.right = true;
+        }
+
+        if (e.key === "ArrowDown") {
+            keys.brake = true;
+        }
+
+    }
+);
+
+document.addEventListener(
+    "keyup",
+    function(e) {
+
+        if (e.key === "ArrowLeft") {
+            keys.left = false;
+        }
+
+        if (e.key === "ArrowRight") {
+            keys.right = false;
+        }
+
+        if (e.key === "ArrowDown") {
+            keys.brake = false;
+        }
+
+    }
+);
+
+resetGame();
+
+</script>
+
+</body>
+  </html>
